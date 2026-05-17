@@ -103,6 +103,7 @@ function logout() {
   S.token = null; S.user = null;
   localStorage.removeItem("vc_token");
   localStorage.removeItem("vc_user");
+  e2ee.reset();   // efface les clés de la session
   if (S.ws) S.ws.close();
   document.getElementById("app").classList.add("hidden");
   document.getElementById("auth-screen").classList.remove("hidden");
@@ -258,11 +259,12 @@ async function renderMessages(contactId) {
     }
     const out   = m.sender_id === S.user.id;
     const plain = await e2ee.decrypt(contactId, m.content);
+    const displayText = plain ?? "🔒 Message chiffré";
     const wrap  = document.createElement("div");
     wrap.className = `msg-wrap ${out ? "out" : "in"}`;
     wrap.innerHTML = `
-      <div class="bubble">
-        ${esc(plain)}
+      <div class="bubble ${plain === null ? 'encrypted-placeholder' : ''}">
+        ${esc(displayText)}
         <span class="msg-time"><span class="lock-icon">🔒</span>${formatTime(m.timestamp)}</span>
       </div>`;
     area.appendChild(wrap);
@@ -357,10 +359,18 @@ async function handleWSMessage(data) {
       const { sender_id, content, timestamp, id } = data;
       if (!S.messages[sender_id]) S.messages[sender_id] = [];
       S.messages[sender_id].push({ id, sender_id, receiver_id: S.user.id, content, timestamp });
+
+      // Dériver la clé automatiquement si pas encore disponible
+      if (!e2ee.hasSessionKey(sender_id)) {
+        try {
+          const pkRes = await apiGet(`/api/public_key/${sender_id}`);
+          await e2ee.deriveSessionKey(sender_id, pkRes.public_key);
+        } catch {}
+      }
+
       if (S.activeChat?.id === sender_id) {
         await renderMessages(sender_id);
       } else {
-        // Badge non-lu
         const c = S.contacts.find(c => c.id === sender_id);
         if (c) { c.unread_count = (c.unread_count || 0) + 1; c.last_message = { content, timestamp }; }
         renderContacts(S.contacts);
