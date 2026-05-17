@@ -1,0 +1,23 @@
+version: "3.9"
+
+services:
+  vaultcall:
+    image: python:3.11-slim
+    container_name: vaultcall-server
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: >
+      sh -c "pip install -r server/requirements_server.txt -q &&
+             cd server &&
+             uvicorn app:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VaultCall — Communication Chiffrée</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- ══════════════════ AUTH SCREEN ══════════════════ -->
+<div id="auth-screen" class="auth-screen">
+  <div class="auth-card">
+
+    <div class="auth-logo">
+      <div class="logo-icon">🔐</div>
+      <div>
+        <h1>VaultCall</h1>
+        <span>Communication audio chiffrée E2EE</span>
+      </div>
+    </div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login"    onclick="switchTab('login')">Connexion</button>
+      <button class="auth-tab"        id="tab-register" onclick="switchTab('register')">Inscription</button>
+    </div>
+
+    <!-- Login -->
+    <form class="auth-form" id="login-form">
+      <div id="login-error" class="auth-error"></div>
+      <div class="field">
+        <label>Nom d'utilisateur</label>
+        <input type="text"     id="login-username" placeholder="votre_pseudo" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label>Mot de passe</label>
+        <input type="password" id="login-password" placeholder="••••••••"    autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn-primary" id="login-btn">Se connecter</button>
+    </form>
+
+    <!-- Register -->
+    <form class="auth-form hidden" id="register-form">
+      <div id="register-error" class="auth-error"></div>
+      <div class="field">
+        <label>Nom affiché</label>
+        <input type="text"     id="reg-display" placeholder="Votre prénom" required>
+      </div>
+      <div class="field">
+        <label>Nom d'utilisateur</label>
+        <input type="text"     id="reg-username" placeholder="unique_id" required>
+      </div>
+      <div class="field">
+        <label>Mot de passe</label>
+        <input type="password" id="reg-password" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="btn-primary" id="register-btn">Créer mon compte</button>
+    </form>
+
+  </div>
+</div>
+
+<!-- ══════════════════ MAIN APP ══════════════════ -->
+<div id="app" class="app hidden">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="user-info">
+        <div class="avatar" id="me-avatar">?</div>
+        <div>
+          <div class="user-name"   id="me-name">...</div>
+          <div class="user-status">🔒 E2EE actif</div>
+        </div>
+      </div>
+      <button class="icon-btn" onclick="openAddContact()" title="Ajouter un contact">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+      </button>
+      <button class="icon-btn" onclick="logout()" title="Déconnexion">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="search-bar">
+      <div class="search-input-wrap">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+        </svg>
+        <input type="text" id="search-input" placeholder="Rechercher..." oninput="filterContacts(this.value)">
+      </div>
+    </div>
+
+    <div class="contacts-list" id="contacts-list">
+      <div class="empty-contacts">
+        <div class="icon">💬</div>
+        <p>Aucun contact.<br>Cliquez sur + pour en ajouter.</p>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main content ── -->
+  <main class="main-content">
+
+    <!-- Welcome -->
+    <div class="welcome-screen" id="welcome-screen">
+      <div class="w-icon">🔐</div>
+      <h2>VaultCall</h2>
+      <p>Sélectionnez un contact pour démarrer une conversation chiffrée.</p>
+    </div>
+
+    <!-- Chat -->
+    <div class="chat-screen hidden" id="chat-screen">
+
+      <div class="chat-header">
+        <div class="avatar" id="chat-avatar">?</div>
+        <div class="ch-info">
+          <div class="ch-name"   id="chat-name">...</div>
+          <div class="ch-status" id="chat-status">hors ligne</div>
+        </div>
+        <div class="e2ee-badge">
+          <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+          </svg>
+          E2EE
+        </div>
+        <div class="ch-actions">
+          <button class="call-btn" id="call-btn" onclick="initiateCall()" title="Appel audio chiffré">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="typing-indicator" id="typing-indicator"></div>
+
+      <div class="messages-area" id="messages-area">
+        <!-- messages injectés dynamiquement -->
+      </div>
+
+      <div class="input-area">
+        <textarea
+          class="msg-input"
+          id="msg-input"
+          rows="1"
+          placeholder="Écrivez un message chiffré..."
+          onkeydown="handleInputKey(event)"
+          oninput="handleTyping()"
+        ></textarea>
+        <button class="send-btn" onclick="sendMessage()" title="Envoyer">
+          <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+          </svg>
+        </button>
+      </div>
+
+    </div><!-- /chat-screen -->
+  </main>
+
+</div><!-- /app -->
+
+<!-- ══════════════════ CALL OVERLAY ══════════════════ -->
+<div id="call-overlay" class="call-overlay hidden">
+  <div class="call-avatar-ring">
+    <div class="ring"></div>
+    <div class="ring ring2"></div>
+    <div class="avatar xlarge" id="call-overlay-avatar">?</div>
+  </div>
+  <div class="call-name"   id="call-overlay-name">...</div>
+  <div class="call-status" id="call-overlay-status">Connexion...</div>
+  <div class="call-timer"  id="call-timer" style="display:none">00:00</div>
+
+  <div class="call-controls">
+    <button class="ctrl-btn mute" id="mute-btn" onclick="toggleMute()">
+      🎤<span>Micro</span>
+    </button>
+    <button class="ctrl-btn end" onclick="endCall()">
+      📵<span>Fin</span>
+    </button>
+    <button class="ctrl-btn mute" id="spk-btn">
+      🔊<span>Son</span>
+    </button>
+  </div>
+  <!-- audio element pour le flux distant -->
+  <audio id="remote-audio" autoplay></audio>
+</div>
+
+<!-- ══════════════════ INCOMING CALL ══════════════════ -->
+<div id="incoming-call" class="incoming-call hidden">
+  <h3>📞 Appel entrant</h3>
+  <p id="incoming-caller-name">...</p>
+  <div class="incoming-btns">
+    <button class="btn-accept" onclick="acceptCall()">✅ Accepter</button>
+    <button class="btn-reject" onclick="rejectCall()">❌ Refuser</button>
+  </div>
+</div>
+
+<!-- ══════════════════ ADD CONTACT MODAL ══════════════════ -->
+<div id="add-modal" class="modal-backdrop hidden">
+  <div class="modal-box">
+    <h3>➕ Ajouter un contact</h3>
+    <input type="text" id="add-username" placeholder="Nom d'utilisateur du contact" oninput="" />
+    <div id="add-error" style="color:#fca5a5; font-size:12px; margin-bottom:10px; display:none;"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel"  onclick="closeAddContact()">Annuler</button>
+      <button class="btn-confirm" onclick="confirmAddContact()">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="/static/crypto_e2ee.js"></script>
+<script src="/static/webrtc.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
